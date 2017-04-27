@@ -1,18 +1,24 @@
 package com.example
 
-import akka.actor.ActorSystem
+import akka.actor.{ActorSystem, Props}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.HttpMethods._
 import akka.http.scaladsl.model._
+import akka.pattern.ask
 import akka.stream.ActorMaterializer
+import akka.util.Timeout
+import com.example.actors.WorkerActor
 
 import scala.concurrent.Future
+import scala.concurrent.duration._
 import scala.util.Properties
 
 object SampleApp extends App {
 
   implicit val system = ActorSystem("SampleSystem")
+  val worker = system.actorOf(Props[WorkerActor], "worker1")
   implicit val materializer = ActorMaterializer()
+  implicit val timeout = Timeout(5 seconds)
 
   val port = Properties.envOrElse("PORT", "8080").toInt
 
@@ -22,10 +28,14 @@ object SampleApp extends App {
   val requestHandler: HttpRequest => Future[HttpResponse] = {
 
     case HttpRequest(GET, Uri.Path("/"), _, _, _) =>
-      Future {
+
+      worker ? "Heroku" map { resp =>
+
+
         HttpResponse(entity = HttpEntity(
           ContentTypes.`text/html(UTF-8)`,
-          s"<html><body>Akka-http web app is running on Heroku!</body></html>"))
+          resp.toString
+        ))
       }
 
     case r: HttpRequest =>
